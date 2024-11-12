@@ -356,12 +356,14 @@ class ImgGraphDataset(Dataset):
             self.classes = torch.arange(10)
         elif dataset_type is SupportedDatasets.IMAGENET:
             self.classes = torch.arange(1000)
+        #Verifica si los datos están preprocesados. Si no, los prepara para el preprocesamiento 
+        #y ejecuta self.preprocess_data() para procesarlos.
         if not is_preprocessed_data_available(root=self.raw_dir, processed_dir=self.processed_dir, dataset_type=dataset_type, split=split):
             make_dataset_available_for_preprocessing(root=self.raw_dir, data_dir=self.data_dir, processed_dir=self.processed_dir, dataset_type=dataset_type, split=split)
             self.preprocess_data()
         if not only_create_dataset:
             self.load_preprocessed_data()
-
+        #Si only_create_dataset es falso, carga los datos ya preprocesados usando load_preprocessed_data()
     def get_processed_name(self):
         name = f'data_{self.split.name}'
         if self.prep_params['use_slic']:
@@ -388,6 +390,7 @@ class ImgGraphDataset(Dataset):
         # the heuristic was done for 96 GB RAM available and the Felzenszwalb hyperparameters presented in the paper
         if self.max_out_ram_for_preprocessing:
             max_ram_for_data = psutil.virtual_memory()[1]//(1024*1024) - 30*1024;
+            #############################
         cpp_args = [
         os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))),'cpp_preprocessing', 'image_to_graph_dataset'),
         used_raw_dir, 
@@ -405,14 +408,25 @@ class ImgGraphDataset(Dataset):
         str(int(self.prep_params['scale_only_min_size'])),
         str(int(max_ram_for_data))
         ]
+        ##Define los argumentos necesarios para ejecutar un proceso en 
+        #C++ que convierte imágenes en grafos, usando los parámetros de prep_params.
         print(f'Running processing with: {cpp_args}')
         subprocess.run(cpp_args)
+        #IMPORTANTE. Ejecuta el preprocesamiento en C++ para transformar imágenes en datos de grafo.
+        #Lo hace con C++ y no Python. En un inicio del proyecto sabía que C++ podía hacerlos con un
+        #número de superpixels exacto. En ese momento deseché la idea porque no entendía bien los formatos
+        #Pero si este paper(2024) insiste en hacerlos en C++ y no en Python en código o libreria es por su cualidad de hacerlo exacto.
+        #Quizás me ahorre todo el trabajo de obtener min,max, si puedo obtener directamente el archivo con superpixeles
+        #Leer la parte del código de C++
+
 
     def load_preprocessed_data(self):
         self.data = torch.tensor(np.load(self.preprocessed_file_path+'.npy'),dtype=torch.float32)
         self.offsets = torch.tensor(np.load(self.preprocessed_file_path+'_offsets.npy'),dtype=torch.long)
         self.statistics = torch.tensor(np.load(self.statistics_file_path+'_statistics.npy'),dtype=torch.float)
         self.lengths = self.offsets[1:]-self.offsets[:-1]
+    #Carga los datos procesados, junto con offsets y estadísticas, y calcula self.lengths para conocer la longitud de cada grafo.
+
 
 
     def __getitem__(self, given_idxs):
