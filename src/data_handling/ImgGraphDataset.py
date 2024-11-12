@@ -77,7 +77,8 @@ def get_data(given_idxs: Tensor, offsets: Tensor, lengths: Tensor, statistics: T
     x = torch.index_select(all_data,0,get_consecutive_idxs(node_features_offset, node_features_length_addition))
     x = x.view(x.shape[0]//7,7)
     used_statistics = statistics.view(statistics.shape[0]//2,2)[[0,1,2,3,4,5,6],:]
-    # select superpixel features based on given options
+    # select superpixel features based on given options. 
+    #Está seleccionando las caracteristicas según las opciones dadas, esto porque en el paper hacer el análisis de sensibilidad.
     if not graph_params['use_stddev'] and graph_params['no_size']:
         x = x[:,[1,2,3]]
         used_statistics = used_statistics[[1,2,3],:]
@@ -89,6 +90,7 @@ def get_data(given_idxs: Tensor, offsets: Tensor, lengths: Tensor, statistics: T
         used_statistics = used_statistics[[0,1,2,3],:]
 
     # create the edges in the way desired by the Pytorch Geometric batching
+    ## crea los bordes de la forma deseada por el método de agrupamiento geométrico de Pytorch
     actual_cumsum_nr_superpixels = torch.cumsum(nr_superpixels,0)
     nr_superpixels_size = actual_cumsum_nr_superpixels[-1]
     inc_edge_index = torch.repeat_interleave(torch.cat((torch.tensor([0]),actual_cumsum_nr_superpixels[:-1])), double_num_edges)
@@ -103,6 +105,11 @@ def get_data(given_idxs: Tensor, offsets: Tensor, lengths: Tensor, statistics: T
     shape_lengths_shape = shape_lengths.shape[0]
     arange_shape_lengths = torch.arange(shape_lengths_shape)
 
+
+    #Calcular y ajustar centroides: Los centroides de los superpixeles se normalizan o convierten
+    #en coordenadas polares según los parámetros dados. Si graph_params['norm_centroids'] o 
+    #graph_params['polar_centroids'] están activados, se ajustan las posiciones de los 
+    #centroides para que se ubiquen con respecto al centro de la imagen o en formato polar.    
     centroids = torch.index_select(shapes,0,get_consecutive_idxs(double_cumsum_shape_lengths+2*(arange_shape_lengths+shape_lengths), torch.full(double_cumsum_shape_lengths.shape, 2)))
     # create the batch in the way desired by the Pytorch Geometric batching
     batch = torch.repeat_interleave(torch.arange(input_idxs_length),nr_superpixels, output_size=nr_superpixels_size)
@@ -124,6 +131,11 @@ def get_data(given_idxs: Tensor, offsets: Tensor, lengths: Tensor, statistics: T
             pos = torch.stack((centroid_dist,(centroid_angle+torch.pi)/(torch.pi*2))).t().contiguous()
         else:
             pos = edge_norm_used_pos
+
+    #Construcción de aristas: Se crean las aristas entre los superpixeles. 
+    #Las aristas se forman entre los índices edge_index_first y edge_index_second, ajustándose a la estructura de PyTorch Geometric,
+    #y se calcula la distancia euclidiana entre aristas si graph_params['use_edge_weights'] está activado.
+
 
     # compute edge weights
     if graph_params['use_edge_weights']:
