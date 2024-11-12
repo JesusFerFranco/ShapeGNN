@@ -135,7 +135,8 @@ def get_data(given_idxs: Tensor, offsets: Tensor, lengths: Tensor, statistics: T
     #Construcción de aristas: Se crean las aristas entre los superpixeles. 
     #Las aristas se forman entre los índices edge_index_first y edge_index_second, ajustándose a la estructura de PyTorch Geometric,
     #y se calcula la distancia euclidiana entre aristas si graph_params['use_edge_weights'] está activado.
-
+        #Aquí entiendo que conecta por RAG oprque se forman todlo entre indeces contiguos 
+    
 
     # compute edge weights
     if graph_params['use_edge_weights']:
