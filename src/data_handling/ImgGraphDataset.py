@@ -33,8 +33,11 @@ def get_consecutive_idxs(offsets: Tensor, lengths: Tensor):
 def get_data(given_idxs: Tensor, offsets: Tensor, lengths: Tensor, statistics: Tensor, data: Tensor, graph_params: Dict[str, bool]):
 
     idxs=torch.sort(given_idxs)[0]
+    #Se ordenan los índices dados.
     query_offsets=torch.index_select(offsets,0,idxs)
+    #Los desplazamiento de los tensores
     query_lengths = torch.index_select(lengths,0,idxs)
+    #tamaño de los tensores
     # all the data for the image graphs corresponding to the given indices
     all_data = torch.index_select(data,0,get_consecutive_idxs(query_offsets, query_lengths))
     
