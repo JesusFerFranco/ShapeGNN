@@ -40,7 +40,10 @@ def get_data(given_idxs: Tensor, offsets: Tensor, lengths: Tensor, statistics: T
     #tamaño de los tensores
     # all the data for the image graphs corresponding to the given indices
     all_data = torch.index_select(data,0,get_consecutive_idxs(query_offsets, query_lengths))
-    
+    #Con los desplazamientos y longitudes obtenidas, se seleccionan porciones de data, 
+    #donde all_data contiene los datos correspondientes a los grafos de imagen para los
+    #índices dado(Toda la información heredada de los superpixels). El archivo data, 
+    #que tiene los datos de superpixels SLIC viene de una carpeta que no existe en el repositorio.
 
     input_idxs_length = idxs.shape[0]
     new_offsets = torch.cat((torch.tensor([0]),torch.cumsum(query_lengths[:-1],0)))
@@ -52,7 +55,10 @@ def get_data(given_idxs: Tensor, offsets: Tensor, lengths: Tensor, statistics: T
     img_height = general_stats[:,3].contiguous()
     img_width = general_stats[:,4].contiguous()
     all_contours_size = general_stats[:,5].contiguous()
-
+    #Calcula estadísticas como y (etiquetas o características de salida), número de superpixeles (nr_superpixels), número de aristas (num_edges), 
+    #y dimensiones de la imagen (img_height y img_width), entre otros,
+    #que son relevantes para la estructuración del gráfico.
+    #Las extrae de general_stats, que a su vez la obtiene por all_data y data(el archivo faltante)
     double_num_edges = 2*num_edges
 
     node_features_length_addition = 7*nr_superpixels
