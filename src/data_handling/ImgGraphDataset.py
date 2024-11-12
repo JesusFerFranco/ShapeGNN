@@ -31,7 +31,14 @@ def get_consecutive_idxs(offsets: Tensor, lengths: Tensor):
     return final_idxs
 
 def get_data(given_idxs: Tensor, offsets: Tensor, lengths: Tensor, statistics: Tensor, data: Tensor, graph_params: Dict[str, bool]):
-
+    #Define la función get_data, que recibe varios tensores y parámetros de configuración.
+    #Los parámetros son:
+    #given_idxs: índices de las muestras de datos que queremos procesar.
+    #offsets: desplazamientos de datos.
+    #lengths: longitudes asociadas con cada índice.
+    #statistics: estadísticas de normalización.
+    #data: tensor con los datos de entrada.
+    #graph_params: contiene configuraciones booleanas para el procesamiento de gráficos.
     idxs=torch.sort(given_idxs)[0]
     #Se ordenan los índices dados.
     query_offsets=torch.index_select(offsets,0,idxs)
@@ -47,25 +54,35 @@ def get_data(given_idxs: Tensor, offsets: Tensor, lengths: Tensor, statistics: T
 
     input_idxs_length = idxs.shape[0]
     new_offsets = torch.cat((torch.tensor([0]),torch.cumsum(query_lengths[:-1],0)))
+    #input_idxs_length almacena el número de índices de entrada.
+    #new_offsets calcula los nuevos desplazamientos acumulativos de los datos seleccionados
+
+    
     # getting the data statistics that will inform further fetching and batching
     general_stats = torch.index_select(all_data,0,get_consecutive_idxs(new_offsets, torch.full(idxs.shape,6))).to(torch.long).view(input_idxs_length,6)
+    
+    #Las estadísticas se convierten en long y se reorganizan en una matriz de input_idxs_length x 6.    
     y = general_stats[:,0].contiguous()
     nr_superpixels = general_stats[:,1].contiguous()
     num_edges = general_stats[:,2].contiguous()
     img_height = general_stats[:,3].contiguous()
     img_width = general_stats[:,4].contiguous()
     all_contours_size = general_stats[:,5].contiguous()
+    
     #Calcula estadísticas como y (etiquetas o características de salida), número de superpixeles (nr_superpixels), número de aristas (num_edges), 
     #y dimensiones de la imagen (img_height y img_width), entre otros,
     #que son relevantes para la estructuración del gráfico.
     #Las extrae de general_stats, que a su vez la obtiene por all_data y data(el archivo faltante)
     double_num_edges = 2*num_edges
-
+    #Calcula el doble del número de aristas (double_num_edges), necesario para la construcción del gráfico.
+    
     #Cálculo de offset para diferentes características: Se determinan posiciones específicas para extraer datos de nodos, aristas y superpixeles.+
     #Por ejemplo, node_features_offset indica dónde comenzar a leer características de nodo.
     node_features_length_addition = 7*nr_superpixels
+    #node_features_length_addition: número total de características de los nodos.
     shape_length_offset = 6+new_offsets
     biggest_distance_shape_idx_offset = shape_length_offset+nr_superpixels
+    #Son desplazamientos
     node_features_offset = biggest_distance_shape_idx_offset+nr_superpixels
     edges_first_offset = node_features_offset+node_features_length_addition
     edges_second_offset = edges_first_offset+double_num_edges
@@ -77,6 +94,9 @@ def get_data(given_idxs: Tensor, offsets: Tensor, lengths: Tensor, statistics: T
     x = torch.index_select(all_data,0,get_consecutive_idxs(node_features_offset, node_features_length_addition))
     x = x.view(x.shape[0]//7,7)
     used_statistics = statistics.view(statistics.shape[0]//2,2)[[0,1,2,3,4,5,6],:]
+    #Extrae las longitudes de las formas (o contornos) y las convierte en long.
+    #Extrae las características de los nodos (x), organizándolas en una matriz con 7 columnas.
+
     # select superpixel features based on given options. 
     #Está seleccionando las caracteristicas según las opciones dadas, esto porque en el paper hacer el análisis de sensibilidad.
     if not graph_params['use_stddev'] and graph_params['no_size']:
@@ -104,6 +124,9 @@ def get_data(given_idxs: Tensor, offsets: Tensor, lengths: Tensor, statistics: T
     double_cumsum_shape_lengths = cumsum_shape_lengths*2
     shape_lengths_shape = shape_lengths.shape[0]
     arange_shape_lengths = torch.arange(shape_lengths_shape)
+    #PARA EL CONTORNO DEL SUPERPIXE. 
+    #Shapes selecciona una subsección de all_data usando índices consecutivos. 
+    #Esta sección representa los contornos de los superpíxeles.
 
 
     #Calcular y ajustar centroides: Los centroides de los superpixeles se normalizan o convierten
@@ -143,8 +166,12 @@ def get_data(given_idxs: Tensor, offsets: Tensor, lengths: Tensor, statistics: T
         edge_attr = (edge_norm_used_pos[edge_index_first]-edge_norm_used_pos[edge_index_second]).pow(2).sum(1).sqrt()
     else:
         edge_attr = None
-
+    #Si use_edge_weights está activo, calcula el peso de las aristas como la distancia 
+    #euclidiana entre los puntos edge_index_first y edge_index_second.
+    
     # always use sparse format to save memory and computation due to the sparsity of the input
+    #Construir representación dispersa: Utilizando las aristas, se crea adj_t, una matriz de adyacencia
+    #dispersa que optimiza el almacenamiento y cálculo para gráficos dispersos.
     sparse_size = edge_index_first[-1]+1
     adj_t = SparseTensor(row=edge_index_first, col=edge_index_second, value=edge_attr, sparse_sizes=(sparse_size, sparse_size), is_sorted=True, trust_data=True)
     shape_lengths_size = actual_cumsum_shape_lengths[-1]
@@ -155,7 +182,14 @@ def get_data(given_idxs: Tensor, offsets: Tensor, lengths: Tensor, statistics: T
         shape_lengths_plus_one_size = shape_lengths_size+shape_lengths_shape
         used_shapes = shapes
         edge_norm_used_shapes = shapes
+        
         # normalise node features (which are positions) according to the given options
+        #Crear gráficos de contornos: Si se requiere un gráfico de gráficos 
+        #(cuando graph_params['graph_of_graphs'] está activado), se construyen 
+        #subgrafos que representan contornos de superpixeles, aplicando normalizaciones 
+        #adicionales de centroides y distancias si las opciones lo especifican.
+        #(ESTO LO OMITO PORQUE NO ES DE MI INTERES)
+        
         if graph_params['normalise_shapes'] or graph_params['polar_shapes'] or graph_params['superpixel_rotation_information']:
             used_shapes = used_shapes.view(shapes.shape[0]//2,2)
             shape_centroids_y = torch.repeat_interleave(centroid_y, shape_lengths_plus_one, output_size=shape_lengths_plus_one_size)
@@ -290,7 +324,13 @@ def get_data(given_idxs: Tensor, offsets: Tensor, lengths: Tensor, statistics: T
     return GraphData(x=x, adj_t=adj_t, pos=pos, y=y,
                      sub_x=sub_x, sub_adj_t=sub_adj_t, batch=batch,
                      sub_batch=sub_batch, edge_index=edge_index, batch_lengths=batch_lengths, edge_batch=edge_batch)
-                     
+    #Devuelve un objeto GraphData que contiene:
+    #x: características normalizadas de los nodos.
+    #adj_t: matriz de adyacencia dispersa.
+    #pos: posiciones ajustadas de los centroides.
+    #sub_x, sub_adj_t, sub_batch: subgrafos para contornos, si están activados.
+    #Batch, edge_index, batch_lengths, edge_batch: información de lotes y aristas               
+
 class ImgGraphDataset(Dataset):
     def __init__(self, base_root_dir, data_dir, dataset_type: SupportedDatasets, split: Splits, prep_params, graph_params, 
         only_create_dataset, max_out_ram_for_preprocessing, statistics_file_type):
