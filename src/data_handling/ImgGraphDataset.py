@@ -35,7 +35,7 @@ def get_data(given_idxs: Tensor, offsets: Tensor, lengths: Tensor, statistics: T
     idxs=torch.sort(given_idxs)[0]
     #Se ordenan los índices dados.
     query_offsets=torch.index_select(offsets,0,idxs)
-    #Los desplazamiento de los tensores
+    #Los desplazamiento de los tensores(o posiciones en este contexto de grafos)
     query_lengths = torch.index_select(lengths,0,idxs)
     #tamaño de los tensores
     # all the data for the image graphs corresponding to the given indices
@@ -61,6 +61,8 @@ def get_data(given_idxs: Tensor, offsets: Tensor, lengths: Tensor, statistics: T
     #Las extrae de general_stats, que a su vez la obtiene por all_data y data(el archivo faltante)
     double_num_edges = 2*num_edges
 
+    #Cálculo de offset para diferentes características: Se determinan posiciones específicas para extraer datos de nodos, aristas y superpixeles.+
+    #Por ejemplo, node_features_offset indica dónde comenzar a leer características de nodo.
     node_features_length_addition = 7*nr_superpixels
     shape_length_offset = 6+new_offsets
     biggest_distance_shape_idx_offset = shape_length_offset+nr_superpixels
@@ -68,7 +70,8 @@ def get_data(given_idxs: Tensor, offsets: Tensor, lengths: Tensor, statistics: T
     edges_first_offset = node_features_offset+node_features_length_addition
     edges_second_offset = edges_first_offset+double_num_edges
 
-    
+    # La matriz x se obtiene a partir de all_data, representando características como el tamaño del superpixel, 
+    # desviación estándar(valores heredados de cada superpixel), las cuales se ajustan dependiendo de las opciones en graph_params
     # get the actual data as well
     shape_lengths = torch.index_select(all_data,0,get_consecutive_idxs(shape_length_offset, nr_superpixels)).to(torch.long)
     x = torch.index_select(all_data,0,get_consecutive_idxs(node_features_offset, node_features_length_addition))
